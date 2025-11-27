@@ -1,23 +1,30 @@
 ﻿<#
 .SYNOPSIS
-  Remove WhatsApp Desktop oficial da Microsoft Store
-  Pacote: 5319275A.WhatsAppDesktop
+  Remove WhatsApp Desktop (Oficial e Beta) da Microsoft Store
+  Pacotes:
+    - 5319275A.WhatsAppDesktop
+    - 5319275A.WhatsAppDesktopBeta
 #>
 
 Write-Host "=== Remoção do WhatsApp Desktop (Store) em $env:COMPUTERNAME ===`n"
 
-$pacoteNome = "5319275A.WhatsAppDesktop"
+# Ambas variantes
+$pacotesAlvo = @(
+    "5319275A.WhatsAppDesktop",
+    "5319275A.WhatsAppDesktopBeta"
+)
 
 ########## 1) REMOVER APPX INSTALADO PARA TODOS OS USUÁRIOS ##########
 
 $pacotes = Get-AppxPackage -AllUsers |
            Where-Object {
-               $_.Name -eq $pacoteNome -or
-               $_.PackageFamilyName -like "$pacoteNome*"
+               foreach ($p in $pacotesAlvo) {
+                   if ($_.Name -eq $p -or $_.PackageFamilyName -like "$p*") { return $true }
+               }
            }
 
 if ($pacotes) {
-    Write-Host "[STORE] Pacotes WhatsApp Desktop encontrados:" -ForegroundColor Yellow
+    Write-Host "[STORE] Pacotes WhatsApp encontrados:" -ForegroundColor Yellow
     $pacotes | Select-Object Name, PackageFullName, PackageFamilyName, UserSid | Format-Table -AutoSize
 
     foreach ($pkg in $pacotes) {
@@ -29,21 +36,22 @@ if ($pacotes) {
         }
     }
 } else {
-    Write-Host "[STORE] Nenhum pacote 5319275A.WhatsAppDesktop encontrado."
+    Write-Host "[STORE] Nenhum pacote WhatsApp encontrado."
 }
 
 Write-Host ""
 
-########## 2) REMOVER PACOTES PROVISIONADOS (PARA NOVOS PERFIS) ##########
+########## 2) REMOVER PACOTES PROVISIONADOS ##########
 
 $prov = Get-AppxProvisionedPackage -Online |
         Where-Object {
-            $_.DisplayName -eq $pacoteNome -or
-            $_.PackageName  -like "$pacoteNome*"
+            foreach ($p in $pacotesAlvo) {
+                if ($_.DisplayName -eq $p -or $_.PackageName -like "$p*") { return $true }
+            }
         }
 
 if ($prov) {
-    Write-Host "[STORE] Pacotes provisionados do WhatsApp Desktop encontrados:" -ForegroundColor Yellow
+    Write-Host "[STORE] Pacotes provisionados do WhatsApp encontrados:" -ForegroundColor Yellow
     $prov | Select-Object DisplayName, PackageName | Format-Table -AutoSize
 
     foreach ($p in $prov) {
@@ -55,13 +63,12 @@ if ($prov) {
         }
     }
 } else {
-    Write-Host "[STORE] Nenhum pacote provisionado do WhatsApp Desktop encontrado."
+    Write-Host "[STORE] Nenhum pacote provisionado do WhatsApp encontrado."
 }
 
 Write-Host ""
 
-########## 3) LIMPAR PASTAS DE DADOS DO USUÁRIO ##########
-# Apenas a pasta do Appx da Store: %LOCALAPPDATA%\Packages\5319275A.WhatsAppDesktop_*
+########## 3) LIMPAR PASTAS DE DADOS (Ambas versões) ##########
 
 $userFolders = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue | Where-Object {
     $_.Name -notin @("Public","Default","Default User","All Users")
@@ -71,13 +78,17 @@ foreach ($u in $userFolders) {
     $packagesDir = Join-Path $u.FullName "AppData\Local\Packages"
     if (Test-Path $packagesDir) {
         $waDirs = Get-ChildItem $packagesDir -Directory -ErrorAction SilentlyContinue |
-                  Where-Object { $_.Name -like "$pacoteNome*" }
+                  Where-Object {
+                      foreach ($p in $pacotesAlvo) {
+                          if ($_.Name -like "$p*") { return $true }
+                      }
+                  }
 
         foreach ($dir in $waDirs) {
-            Write-Host "Removendo pasta de dados do WhatsApp Desktop: $($dir.FullName)" -ForegroundColor Cyan
+            Write-Host "Removendo pasta de dados: $($dir.FullName)" -ForegroundColor Cyan
             Remove-Item $dir.FullName -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
 
-Write-Host "`nConcluído. WhatsApp Desktop da Store foi removido."
+Write-Host "`nConcluído. WhatsApp Desktop (Oficial e Beta) removido."
